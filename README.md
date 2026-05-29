@@ -369,8 +369,8 @@ Os gráficos exportados podem ser incorporados diretamente em interfaces web.
 python-selene/
 │
 ├── selene.py
-├── README.md
 └── requirements.txt
+README.md
 ```
 
 ---
