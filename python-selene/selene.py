@@ -2,38 +2,54 @@ import requests
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import json
 
 # ==========================================
 # PROJECT SELENE
 # Sistema Orbital de Monitoramento Climático
 # ==========================================
-# Este sistema integra dados climáticos da NASA com validação orbital,
-# aplicando conceitos de cálculo numérico (Newton-Raphson), derivadas
-# e análise de riscos para simular um ambiente espacial realista.
+# Integra dados climáticos reais da NASA POWER API com validação
+# orbital baseada em cálculo diferencial e método de Newton-Raphson.
+# O sistema classifica riscos climáticos, valida a estabilidade do
+# sinal orbital e exporta dados e gráficos para dashboards web.
 
-# Coordenadas de Porto Alegre (exemplo de aplicação prática)
-latitude = -30.03
-longitude = -51.23
-
-# Intervalo de datas para coleta dos dados
-start = "20230101"
-end = "20251231"
-
-# ==========================================
-# COLETA DE DADOS NASA POWER
-# ==========================================
-# API da NASA POWER fornece dados climáticos diários (temperatura, chuva, umidade)
-url = f"https://power.larc.nasa.gov/api/temporal/daily/point?start={start}&end={end}&latitude={latitude}&longitude={longitude}&community=RE&parameters=T2M,PRECTOTCORR,RH2M&format=JSON"
-
-response = requests.get(url)
-data = response.json()
-
-# Extraindo parâmetros da resposta
-parametros_nasa = data["properties"]["parameter"]
+# ------------------------------------------
+# COORDENADAS E PERÍODO DE COLETA
+# ------------------------------------------
+LATITUDE  = -30.03   # Porto Alegre – RS
+LONGITUDE = -51.23
+DATA_INICIO = "20230101"
+DATA_FIM    = "20251231"
 
 # ==========================================
-# DATAFRAME DE DADOS CLIMÁTICOS
+# 1. COLETA DE DADOS — NASA POWER API
 # ==========================================
+# Parâmetros coletados:
+#   T2M          → temperatura média a 2 metros (°C)
+#   PRECTOTCORR  → precipitação corrigida (mm)
+#   RH2M         → umidade relativa a 2 metros (%)
+
+print("Conectando à NASA POWER API...")
+
+url = (
+    f"https://power.larc.nasa.gov/api/temporal/daily/point"
+    f"?start={DATA_INICIO}&end={DATA_FIM}"
+    f"&latitude={LATITUDE}&longitude={LONGITUDE}"
+    f"&community=RE&parameters=T2M,PRECTOTCORR,RH2M&format=JSON"
+)
+
+resposta = requests.get(url)
+dados_brutos = resposta.json()
+parametros_nasa = dados_brutos["properties"]["parameter"]
+
+print("Dados recebidos com sucesso.")
+
+# ==========================================
+# 2. ESTRUTURAÇÃO DOS DADOS EM DATAFRAME
+# ==========================================
+# Organiza os dados em série temporal para análise estatística,
+# classificação de risco e geração de gráficos.
+
 dados_climaticos = pd.DataFrame({
     "Temperatura": parametros_nasa["T2M"],
     "Chuva":       parametros_nasa["PRECTOTCORR"],
@@ -43,14 +59,14 @@ dados_climaticos = pd.DataFrame({
 dados_climaticos.index = pd.to_datetime(dados_climaticos.index)
 
 # ==========================================
-# FUNÇÕES DE EFICIÊNCIA ORBITAL
+# 3. FUNÇÕES DE EFICIÊNCIA ORBITAL
 # ==========================================
+# E(x)   → eficiência do sinal em função da altura x da antena
+# E'(x)  → primeira derivada: taxa de variação da eficiência
+# E''(x) → segunda derivada: usada como f'(x) no Newton-Raphson
 
-# ----------------------------------------------------------
-# FUNÇÃO ORIGINAL
-# E(x) = -x^6/6 + 15x^5/5 - 85x^4/4 + 225x^3/3 - 274x^2/2 + 120x
-# ----------------------------------------------------------
 def E(x):
+    """Função de eficiência orbital — polinômio de grau 6."""
     return (
         -(x**6)/6
         + (15*x**5)/5
@@ -60,11 +76,8 @@ def E(x):
         + 120*x
     )
 
-# ----------------------------------------------------------
-# PRIMEIRA DERIVADA
-# E'(x) = -x^5 + 15x^4 - 85x^3 + 225x^2 - 274x + 120
-# ----------------------------------------------------------
 def dE(x):
+    """Primeira derivada de E(x): E'(x) = -x^5 + 15x^4 - 85x^3 + 225x^2 - 274x + 120."""
     return (
         -x**5
         + 15*x**4
@@ -74,11 +87,8 @@ def dE(x):
         + 120
     )
 
-# ----------------------------------------------------------
-# SEGUNDA DERIVADA
-# E''(x) = -5x^4 + 60x^3 - 255x^2 + 450x - 274
-# ----------------------------------------------------------
 def ddE(x):
+    """Segunda derivada de E(x): E''(x) = -5x^4 + 60x^3 - 255x^2 + 450x - 274."""
     return (
         -5*x**4
         + 60*x**3
@@ -88,68 +98,82 @@ def ddE(x):
     )
 
 # ==========================================
-# MÉTODO DE NEWTON-RAPHSON
-# Aplicado sobre E'(x): encontra onde E'(x) = 0
-# ou seja, os pontos críticos (máximos/mínimos) de E(x)
-# Usa E''(x) como derivada da função que está sendo zerada
+# 4. MÉTODO DE NEWTON-RAPHSON
 # ==========================================
+# Encontra a raiz de E'(x) = 0, ou seja, o ponto onde a eficiência
+# do sinal é máxima (ponto crítico). Usa E''(x) como derivada de E'(x).
+# Fórmula: x_(n+1) = x_n - E'(x_n) / E''(x_n)
+
 def newton_raphson(x0, tolerancia=1e-6, max_iteracoes=100):
+    """
+    Aplica o método de Newton-Raphson sobre E'(x) para encontrar
+    o ponto crítico (altura ideal da antena).
+
+    Parâmetros:
+        x0            → estimativa inicial
+        tolerancia    → critério de parada (padrão: 1e-6)
+        max_iteracoes → limite de iterações (padrão: 100)
+
+    Retorna:
+        x → altura ideal da antena
+    """
     x = x0
-    print("=== MÉTODO DE NEWTON-RAPHSON ===\n")
+
+    print("\n=== MÉTODO DE NEWTON-RAPHSON ===\n")
+
     for i in range(max_iteracoes):
-        fx  = dE(x)   # valor de E'(x) — queremos zerar esta
-        dfx = ddE(x)  # valor de E''(x) — derivada de E'(x)
+        fx  = dE(x)
+        dfx = ddE(x)
 
         if dfx == 0:
-            print(f"  Iteração {i+1}: derivada segunda nula, método interrompido.")
+            print("Derivada segunda nula. Método interrompido.")
             break
 
         x_novo = x - fx / dfx
-        erro   = abs(x_novo - x)
 
-        print(f"  Iteração {i+1:>3}: x = {x_novo:.8f} | E'(x) = {fx:.2e} | erro = {erro:.2e}")
+        print(f"Iteração {i+1:>3}: x = {x_novo:.6f} | E'(x) = {dE(x_novo):.8f}")
 
-        if erro < tolerancia:
-            print(f"\n  Convergiu em {i+1} iterações.")
+        if abs(x_novo - x) < tolerancia:
+            print(f"\nConvergência atingida na iteração {i+1}.")
             return x_novo
 
         x = x_novo
 
-    print("\n  AVISO: máximo de iterações atingido sem convergência total.")
     return x
 
-# ==========================================
-# EXECUTANDO NEWTON-RAPHSON
-# Chute inicial x0 = 1.0 (região de interesse da função)
-# ==========================================
-altura_ideal = newton_raphson(x0=1.0)
+# Ponto inicial escolhido próximo ao máximo global da função
+altura_ideal = newton_raphson(x0=0.5)
 
 # ==========================================
-# VALIDAÇÃO ORBITAL DO SINAL
+# 5. VALIDAÇÃO ORBITAL DO SINAL
 # ==========================================
+# Avalia eficiência e estabilidade do sinal com base na altura ideal.
+# Limiares calibrados para o polinômio de grau 6 utilizado:
+#   ESTÁVEL  → E > 35 e variação < 1  (operação normal)
+#   MODERADO → E > 25                 (atenção)
+#   INSTÁVEL → demais casos           (interrompe o sistema)
+
 print("\n==============================")
 print("VALIDAÇÃO ORBITAL DO SINAL")
 print("==============================")
 
-eficiencia   = E(altura_ideal)
-estabilidade = abs(dE(altura_ideal))   # deve ser ≈ 0 no ponto crítico
+eficiencia_sinal  = E(altura_ideal)
+variacao_sinal    = abs(dE(altura_ideal))
 
-print(f"\nAltura ideal da antena : {altura_ideal:.6f}")
+print(f"\nAltura ideal da antena : {altura_ideal:.4f}")
 print(f"Altura aproximada      : {altura_ideal * 100:.2f} metros")
-print(f"\nEficiência do sinal    : {eficiencia:.6f}")
-print(f"Variação do sinal E'(x): {estabilidade:.2e}  (≈ 0 confirma ponto crítico)")
+print(f"\nEficiência do sinal    : {eficiencia_sinal:.4f}")
+print(f"Variação do sinal (E') : {variacao_sinal:.8f}")
 
-# Classificação com base na eficiência em E(altura_ideal)
-if eficiencia > 40 and estabilidade < 1:
+if eficiencia_sinal > 35 and variacao_sinal < 1:
     status_sinal = "ESTÁVEL"
-elif eficiencia > 20:
+elif eficiencia_sinal > 25:
     status_sinal = "MODERADO"
 else:
     status_sinal = "INSTÁVEL"
 
 print(f"\nStatus do sinal: {status_sinal}")
 
-# Liberação dos dados climáticos condicionada ao sinal
 if status_sinal == "INSTÁVEL":
     print("\nERRO: Falha na comunicação orbital. Dados climáticos não são confiáveis.")
     sistema_operacional = False
@@ -158,139 +182,192 @@ else:
     sistema_operacional = True
 
 # ==========================================
-# PROCESSAMENTO CONDICIONAL
+# 6. ANÁLISE CLIMÁTICA
 # ==========================================
 if sistema_operacional:
-    print("\nSistema operacional ativo. Análise climática concluída com sucesso.")
-else:
-    print("\nSistema em modo de segurança.")
 
-# ==========================================
-# ANÁLISE DE DADOS CLIMÁTICOS
-# ==========================================
-print("\n========== ANÁLISE CLIMÁTICA ==========\n")
+    print("\n========== ANÁLISE CLIMÁTICA ==========\n")
 
-temp_media   = dados_climaticos["Temperatura"].mean()
-temp_max     = dados_climaticos["Temperatura"].max()
-temp_min     = dados_climaticos["Temperatura"].min()
-chuva_media  = dados_climaticos["Chuva"].mean()
-chuva_max    = dados_climaticos["Chuva"].max()
-umidade_media = dados_climaticos["Umidade"].mean()
+    temp_media    = dados_climaticos["Temperatura"].mean()
+    temp_maxima   = dados_climaticos["Temperatura"].max()
+    temp_minima   = dados_climaticos["Temperatura"].min()
+    chuva_media   = dados_climaticos["Chuva"].mean()
+    chuva_maxima  = dados_climaticos["Chuva"].max()
+    umidade_media = dados_climaticos["Umidade"].mean()
 
-print(f"Temperatura média   : {temp_media:.2f} °C")
-print(f"Temperatura máxima  : {temp_max:.2f} °C")
-print(f"Temperatura mínima  : {temp_min:.2f} °C")
-print(f"\nChuva média         : {chuva_media:.2f} mm")
-print(f"Maior volume de chuva: {chuva_max:.2f} mm")
-print(f"\nUmidade média       : {umidade_media:.2f}%")
+    print(f"Temperatura média    : {temp_media:.2f} °C")
+    print(f"Temperatura máxima   : {temp_maxima:.2f} °C")
+    print(f"Temperatura mínima   : {temp_minima:.2f} °C")
+    print(f"\nChuva média          : {chuva_media:.2f} mm")
+    print(f"Maior volume de chuva: {chuva_maxima:.2f} mm")
+    print(f"\nUmidade média        : {umidade_media:.2f} %")
 
-# ==========================================
-# DETECÇÃO DE RISCO CLIMÁTICO
-# ==========================================
-print("\n========== ALERTAS ==========\n")
+    # ==========================================
+    # 7. CLASSIFICAÇÃO DE RISCO CLIMÁTICO
+    # ==========================================
+    # Categorias baseadas em índices de chuva e umidade:
+    #   SEGURO         → chuva ≤ 10 mm
+    #   RISCO MODERADO → chuva > 10 mm
+    #   RISCO ALTO     → chuva > 20 mm e umidade > 80%
+    #   RISCO EXTREMO  → chuva > 30 mm e umidade > 85%
 
-def classificar_risco(chuva, umidade):
-    if chuva > 30 and umidade > 85:
-        return "RISCO EXTREMO"
-    elif chuva > 20 and umidade > 80:
-        return "RISCO ALTO"
-    elif chuva > 10:
-        return "RISCO MODERADO"
-    else:
-        return "SEGURO"
+    def classificar_risco(chuva, umidade):
+        """Classifica o risco climático do dia com base em chuva e umidade."""
+        if chuva > 30 and umidade > 85:
+            return "RISCO EXTREMO"
+        elif chuva > 20 and umidade > 80:
+            return "RISCO ALTO"
+        elif chuva > 10:
+            return "RISCO MODERADO"
+        else:
+            return "SEGURO"
 
-dados_climaticos["Risco"] = dados_climaticos.apply(
-    lambda row: classificar_risco(row["Chuva"], row["Umidade"]), axis=1
-)
+    dados_climaticos["Risco"] = dados_climaticos.apply(
+        lambda row: classificar_risco(row["Chuva"], row["Umidade"]), axis=1
+    )
 
-print(dados_climaticos["Risco"].value_counts())
+    print("\n========== ALERTAS CLIMÁTICOS ==========\n")
+    print(dados_climaticos["Risco"].value_counts().to_string())
 
-# ==========================================
-# EXPORTAR JSON PARA FRONT-END
-# ==========================================
-dados_json = {
-    "temperatura":       dados_climaticos["Temperatura"].tolist(),
-    "chuva":             dados_climaticos["Chuva"].tolist(),
-    "vento":             [],   # placeholder (API não fornece vento)
-    "umidade":           dados_climaticos["Umidade"].tolist(),
-    "risco":             dados_climaticos["Risco"].tolist(),
-    "altura_ideal":      float(altura_ideal),
-    "eficiencia_sinal":  float(eficiencia),
-    "variacao_sinal":    float(estabilidade),
-    "status_sinal":      status_sinal,
-    "sistema_operacional": sistema_operacional,
-    "graficos": {
-        "temperatura": "grafico_temperatura.png",
-        "chuva":       "grafico_chuva.png",
-        "umidade":     "grafico_umidade.png",
-        "risco":       "grafico_risco.png",
-        "sinal":       "grafico_sinal.png"
+    # ==========================================
+    # 8. GERAÇÃO DE GRÁFICOS
+    # ==========================================
+    # Gráficos exportados em PNG para uso em dashboards web.
+    # IMPORTANTE: plt.savefig() ANTES de plt.show() para garantir
+    # que a figura seja salva antes de ser liberada da memória.
+
+    # --- Temperatura ---
+    plt.figure(figsize=(12, 5))
+    plt.plot(dados_climaticos.index, dados_climaticos["Temperatura"],
+    color="#E05C3A", linewidth=0.8, label="Temperatura (°C)")
+    plt.title("Temperatura Média Diária — Porto Alegre (2023–2025)", fontsize=13)
+    plt.xlabel("Data")
+    plt.ylabel("°C")
+    plt.legend()
+    plt.grid(True, alpha=0.4)
+    plt.tight_layout()
+    plt.savefig("grafico_temperatura.png", dpi=150)
+    plt.show()
+    plt.close()
+
+    # --- Chuva ---
+    plt.figure(figsize=(12, 5))
+    plt.bar(dados_climaticos.index, dados_climaticos["Chuva"],
+    color="#3A7EE0", width=1.0, label="Precipitação (mm)")
+    plt.title("Volume de Chuva Diário — Porto Alegre (2023–2025)", fontsize=13)
+    plt.xlabel("Data")
+    plt.ylabel("mm")
+    plt.legend()
+    plt.grid(True, alpha=0.4)
+    plt.tight_layout()
+    plt.savefig("grafico_chuva.png", dpi=150)
+    plt.show()
+    plt.close()
+
+    # --- Umidade ---
+    plt.figure(figsize=(12, 5))
+    plt.plot(dados_climaticos.index, dados_climaticos["Umidade"],
+    color="#3ABA6E", linewidth=0.8, label="Umidade Relativa (%)")
+    plt.title("Umidade Relativa do Ar — Porto Alegre (2023–2025)", fontsize=13)
+    plt.xlabel("Data")
+    plt.ylabel("Umidade (%)")
+    plt.legend()
+    plt.grid(True, alpha=0.4)
+    plt.tight_layout()
+    plt.savefig("grafico_umidade.png", dpi=150)
+    plt.show()
+    plt.close()
+
+    # --- Risco Climático ---
+    ordem_categorias = ["SEGURO", "RISCO MODERADO", "RISCO ALTO", "RISCO EXTREMO"]
+    cores_risco = ["#4CAF50", "#FFC107", "#FF5722", "#B71C1C"]
+    contagem_risco = dados_climaticos["Risco"].value_counts().reindex(ordem_categorias, fill_value=0)
+
+    plt.figure(figsize=(10, 6))
+    plt.bar(contagem_risco.index, contagem_risco.values,
+            color=cores_risco, edgecolor="white")
+    plt.title("Distribuição de Risco Climático — Porto Alegre (2023–2025)", fontsize=13)
+    plt.xlabel("Categoria de Risco")
+    plt.ylabel("Quantidade de Dias")
+    plt.grid(True, axis="y", alpha=0.4)
+    plt.tight_layout()
+    plt.savefig("grafico_risco.png", dpi=150)
+    plt.show()
+    plt.close()
+
+    # --- Curva de Eficiência Orbital ---
+    x_vals = np.linspace(0.1, 5.9, 500)
+    y_vals = [E(x) for x in x_vals]
+
+    plt.figure(figsize=(10, 5))
+    plt.plot(x_vals, y_vals, color="#7B2FBE", linewidth=2, label="E(x) — Eficiência")
+    plt.axvline(x=altura_ideal, color="red", linestyle="--", linewidth=1.5,
+                label=f"Altura ideal: x = {altura_ideal:.2f}")
+    plt.scatter([altura_ideal], [eficiencia_sinal],
+                color="red", zorder=5, s=80)
+    plt.title("Curva de Eficiência Orbital E(x)", fontsize=13)
+    plt.xlabel("Altura da Antena (x)")
+    plt.ylabel("Eficiência E(x)")
+    plt.legend()
+    plt.grid(True, alpha=0.4)
+    plt.tight_layout()
+    plt.savefig("grafico_sinal.png", dpi=150)
+    plt.show()
+    plt.close()
+
+    print("\nGráficos gerados e salvos com sucesso.")
+
+    # ==========================================
+    # 9. EXPORTAÇÃO JSON PARA INTEGRAÇÃO WEB
+    # ==========================================
+    # Estrutura completa exportada em arquivo JSON para uso em
+    # dashboards HTML/CSS/JavaScript ou APIs externas.
+
+    dados_json = {
+        "periodo": {
+            "inicio": DATA_INICIO,
+            "fim": DATA_FIM
+        },
+        "localizacao": {
+            "latitude": LATITUDE,
+            "longitude": LONGITUDE,
+            "cidade": "Porto Alegre – RS"
+        },
+        "validacao_orbital": {
+            "altura_ideal": float(altura_ideal),
+            "eficiencia_sinal": float(eficiencia_sinal),
+            "variacao_sinal": float(variacao_sinal),
+            "status_sinal": status_sinal
+        },
+        "resumo_climatico": {
+            "temp_media": round(temp_media, 2),
+            "temp_maxima": round(temp_maxima, 2),
+            "temp_minima": round(temp_minima, 2),
+            "chuva_media": round(chuva_media, 2),
+            "chuva_maxima": round(chuva_maxima, 2),
+            "umidade_media": round(umidade_media, 2)
+        },
+        "distribuicao_risco": dados_climaticos["Risco"].value_counts().to_dict(),
+        "series_temporais": {
+            "temperatura": dados_climaticos["Temperatura"].tolist(),
+            "chuva": dados_climaticos["Chuva"].tolist(),
+            "umidade": dados_climaticos["Umidade"].tolist(),
+            "risco": dados_climaticos["Risco"].tolist()
+        },
+        "graficos": {
+            "temperatura": "grafico_temperatura.png",
+            "chuva": "grafico_chuva.png",
+            "umidade": "grafico_umidade.png",
+            "risco": "grafico_risco.png",
+            "sinal": "grafico_sinal.png"
+        }
     }
-}
 
-print("\nJSON pronto para integração com o front-end!")
+    with open("dados_selene.json", "w", encoding="utf-8") as arquivo_json:
+        json.dump(dados_json, arquivo_json, ensure_ascii=False, indent=4)
 
-# ==========================================
-# GRÁFICOS EXPORTADOS PARA PNG
-# ==========================================
+    print("Arquivo 'dados_selene.json' exportado com sucesso.")
+    print("\nSistema Selene finalizado com sucesso.")
 
-# Temperatura
-plt.figure(figsize=(12, 5))
-plt.plot(dados_climaticos.index, dados_climaticos["Temperatura"], label="Temperatura")
-plt.title("Temperatura Média")
-plt.xlabel("Data")
-plt.ylabel("°C")
-plt.legend()
-plt.grid(True)
-plt.savefig("grafico_temperatura.png")
-plt.close()
-
-# Chuva
-plt.figure(figsize=(12, 5))
-plt.plot(dados_climaticos.index, dados_climaticos["Chuva"], label="Chuva")
-plt.title("Volume de Chuva")
-plt.xlabel("Data")
-plt.ylabel("mm")
-plt.legend()
-plt.grid(True)
-plt.savefig("grafico_chuva.png")
-plt.close()
-
-# Umidade
-plt.figure(figsize=(12, 6))
-plt.plot(dados_climaticos.index, dados_climaticos["Umidade"], label="Umidade")
-plt.title("Umidade Relativa do Ar")
-plt.xlabel("Data")
-plt.ylabel("Umidade (%)")
-plt.legend()
-plt.grid(True)
-plt.savefig("grafico_umidade.png")
-plt.close()
-
-# Risco Climático
-risco_contagem = dados_climaticos["Risco"].value_counts()
-plt.figure(figsize=(10, 6))
-plt.bar(risco_contagem.index, risco_contagem.values)
-plt.title("Classificação de Risco Climático")
-plt.xlabel("Categoria")
-plt.ylabel("Quantidade de Dias")
-plt.grid(True)
-plt.savefig("grafico_risco.png")
-plt.close()
-
-# Gráfico da Função de Eficiência E(x)
-x_vals = np.linspace(0, 6, 500)
-plt.figure(figsize=(10, 5))
-plt.plot(x_vals, [E(x) for x in x_vals], label="E(x)", color="royalblue")
-plt.plot(x_vals, [dE(x) for x in x_vals], label="E'(x)", color="orange", linestyle="--")
-plt.axvline(altura_ideal, color="red", linestyle=":", label=f"x ideal ≈ {altura_ideal:.4f}")
-plt.axhline(0, color="gray", linewidth=0.8)
-plt.title("Função de Eficiência Orbital e sua Derivada")
-plt.xlabel("x (altura normalizada)")
-plt.ylabel("Valor")
-plt.legend()
-plt.grid(True)
-plt.savefig("grafico_sinal.png")
-plt.close()
-
-print("\nTodos os gráficos exportados com sucesso.")
+else:
+    print("\nSistema em modo de segurança. Análise climática interrompida.")
