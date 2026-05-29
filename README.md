@@ -9,7 +9,7 @@ O sistema integra:
 * dados climáticos reais obtidos da **NASA POWER API**;
 * análise computacional de riscos ambientais;
 * modelagem matemática da eficiência de sinal;
-* aplicação de derivadas;
+* aplicação de derivadas (primeira e segunda);
 * utilização do método numérico de Newton-Raphson;
 * geração de gráficos para dashboards web.
 
@@ -22,7 +22,7 @@ O objetivo principal do projeto é simular um sistema inteligente de monitoramen
 
 ---
 
-# 🌎 Problema Proposto
+## 🌎 Problema Proposto
 
 Sistemas de monitoramento climático dependem de comunicação estável entre satélites e estações terrestres.
 
@@ -43,13 +43,13 @@ Além disso:
 
 Dessa forma, o desafio consiste em encontrar uma altura adequada para a antena, equilibrando:
 
-✅ eficiência do sinal;
-✅ estabilidade operacional;
+✅ eficiência do sinal;  
+✅ estabilidade operacional;  
 ✅ menor custo estrutural possível.
 
 ---
 
-# 🛰️ Objetivos do Projeto
+## 🛰️ Objetivos do Projeto
 
 O Project Selene foi desenvolvido com os seguintes objetivos:
 
@@ -64,26 +64,26 @@ O Project Selene foi desenvolvido com os seguintes objetivos:
 
 ---
 
-# ⚙️ Tecnologias Utilizadas
+## ⚙️ Tecnologias Utilizadas
 
-## Linguagem
+### Linguagem
 
 * Python 3
 
-## Bibliotecas
+### Bibliotecas
 
-* requests
-* pandas
-* matplotlib
-* numpy
+* `requests` — consumo da NASA POWER API
+* `pandas` — estruturação e análise dos dados climáticos
+* `matplotlib` — geração de gráficos
+* `numpy` — suporte a operações numéricas
 
-## APIs e Fontes de Dados
+### APIs e Fontes de Dados
 
-* NASA POWER API
+* [NASA POWER API](https://power.larc.nasa.gov/)
 
 ---
 
-# 📡 Funcionamento Geral do Sistema
+## 📡 Funcionamento Geral do Sistema
 
 O sistema segue o seguinte fluxo computacional:
 
@@ -91,36 +91,36 @@ O sistema segue o seguinte fluxo computacional:
 2. organiza os dados em DataFrames;
 3. realiza análise estatística automática;
 4. classifica riscos climáticos;
-5. calcula a eficiência orbital do sinal;
-6. aplica derivadas e Newton-Raphson;
-7. valida a estabilidade da comunicação;
-8. gera gráficos;
-9. exporta os dados para integração web.
+5. calcula a eficiência orbital do sinal com polinômio de grau 6;
+6. aplica primeira e segunda derivadas;
+7. aplica Newton-Raphson para encontrar a altura ideal da antena;
+8. valida a estabilidade da comunicação orbital;
+9. gera gráficos em PNG;
+10. exporta os dados para integração web.
 
 ---
 
-# 🌦️ Coleta de Dados Climáticos
+## 🌦️ Coleta de Dados Climáticos
 
 Os dados climáticos são obtidos através da **NASA POWER API**.
 
 O sistema coleta automaticamente:
 
-* temperatura média;
-* volume de chuva;
-* umidade relativa do ar.
+* temperatura média (`T2M`);
+* volume de chuva (`PRECTOTCORR`);
+* umidade relativa do ar (`RH2M`).
 
-Exemplo de coordenadas utilizadas:
-
-* Porto Alegre – RS
+Coordenadas utilizadas como exemplo:
 
 ```python
-latitude = -30.03
+# Porto Alegre – RS
+latitude  = -30.03
 longitude = -51.23
 ```
 
 ---
 
-# 📊 Estruturação e Processamento de Dados
+## 📊 Estruturação e Processamento de Dados
 
 Os dados recebidos da API são convertidos para um **DataFrame Pandas**, permitindo:
 
@@ -130,278 +130,220 @@ Os dados recebidos da API são convertidos para um **DataFrame Pandas**, permiti
 * geração de gráficos;
 * classificação de riscos.
 
-Exemplo:
-
 ```python
 dados_climaticos = pd.DataFrame({
     "Temperatura": parametros_nasa["T2M"],
-    "Chuva": parametros_nasa["PRECTOTCORR"],
-    "Umidade": parametros_nasa["RH2M"]
+    "Chuva":       parametros_nasa["PRECTOTCORR"],
+    "Umidade":     parametros_nasa["RH2M"]
 })
 ```
 
 ---
 
-# 📈 Análise Climática Automatizada
+## 📈 Análise Climática Automatizada
 
 O sistema calcula automaticamente:
 
-* temperatura média;
-* temperatura máxima;
-* temperatura mínima;
-* média de chuva;
-* maior volume de chuva;
-* umidade média.
+* temperatura média, máxima e mínima;
+* média e maior volume de chuva registrado;
+* umidade média do período.
 
 Essas análises permitem identificar padrões meteorológicos e condições extremas.
 
 ---
 
-# 🚨 Sistema Inteligente de Risco Climático
+## 🚨 Sistema Inteligente de Risco Climático
 
 O Project Selene possui um sistema automatizado de classificação de risco climático.
 
-As categorias utilizadas são:
-
-* SEGURO
-* RISCO MODERADO
-* RISCO ALTO
-* RISCO EXTREMO
-
-A classificação considera:
-
-* índice de chuva;
-* umidade relativa do ar.
-
-Exemplo da lógica utilizada:
+| Categoria      | Condição                              |
+|----------------|---------------------------------------|
+| SEGURO         | Chuva ≤ 10 mm                         |
+| RISCO MODERADO | Chuva > 10 mm                         |
+| RISCO ALTO     | Chuva > 20 mm **e** Umidade > 80%     |
+| RISCO EXTREMO  | Chuva > 30 mm **e** Umidade > 85%     |
 
 ```python
 def classificar_risco(chuva, umidade):
-
     if chuva > 30 and umidade > 85:
         return "RISCO EXTREMO"
-
     elif chuva > 20 and umidade > 80:
         return "RISCO ALTO"
-
     elif chuva > 10:
         return "RISCO MODERADO"
-
     else:
         return "SEGURO"
 ```
 
 ---
 
-# 📐 Aplicação Matemática
+## 📐 Aplicação Matemática
 
-## Função de Eficiência Orbital
+### Função de Eficiência Orbital
 
-A eficiência do sinal orbital foi modelada matematicamente pela função:
+A eficiência do sinal orbital foi modelada por um polinômio de **grau 6**:
 
-[
-E(x) = -x^2 + 50x
-]
-
-Onde:
-
-* (E(x)) representa a eficiência do sinal;
-* (x) representa a altura da antena.
-
-Essa função foi utilizada para simular o comportamento do sinal conforme a altura da antena aumenta.
-
----
-
-# 📘 Aplicação das Derivadas
-
-Para identificar os pontos críticos da função, foi necessário calcular sua derivada.
-
-A derivada representa a taxa de variação da função.
-
-Derivando:
-
-[
-E(x) = -x^2 + 50x
-]
-
-obtém-se:
-
-[
-E'(x) = -2x + 50
-]
-
-Os pontos críticos ocorrem quando:
-
-[
-E'(x) = 0
-]
-
-Substituindo:
-
-[
--2x + 50 = 0
-]
-
-[
--2x = -50
-]
-
-[
-x = 25
-]
-
-Assim, o ponto crítico da função ocorre em:
-
-[
-x = 25
-]
-
----
-
-# 🔢 Método de Newton-Raphson
-
-Como forma de automatizar o cálculo do ponto crítico, foi utilizado o método numérico de Newton-Raphson.
-
-A fórmula utilizada é:
-
-[
-x_{n+1} = x_n - \frac{f(x_n)}{f'(x_n)}
-]
+```
+E(x) = -x⁶/6 + 15x⁵/5 - 85x⁴/4 + 225x³/3 - 274x²/2 + 120x
+```
 
 Onde:
+* `E(x)` representa a eficiência do sinal orbital;
+* `x` representa a altura da antena.
 
-* (x_n) representa a aproximação atual;
-* (x_{n+1}) representa a nova aproximação;
-* (f(x)) representa a derivada da função;
-* (f'(x)) representa a segunda derivada.
-
-O método realiza aproximações sucessivas até encontrar uma raiz suficientemente próxima de zero.
+Essa função captura o comportamento não-linear do sinal conforme a altura varia, incluindo múltiplos pontos críticos locais.
 
 ---
 
-# 💻 Implementação do Método em Python
+## 📘 Aplicação das Derivadas
+
+Para identificar os pontos críticos da função, foram calculadas a **primeira** e a **segunda** derivada.
+
+### Primeira derivada — E'(x)
+
+Identifica onde a eficiência é máxima ou mínima (taxa de variação = 0):
+
+```
+E'(x) = -x⁵ + 15x⁴ - 85x³ + 225x² - 274x + 120
+```
+
+O ponto crítico ocorre quando `E'(x) = 0`.
+
+### Segunda derivada — E''(x)
+
+Confirma a natureza do ponto crítico (máximo, mínimo ou inflexão) e é usada como derivada no método de Newton-Raphson:
+
+```
+E''(x) = -5x⁴ + 60x³ - 255x² + 450x - 274
+```
+
+---
+
+## 🔢 Método de Newton-Raphson
+
+Para encontrar automaticamente o zero de `E'(x)` — ou seja, a altura ideal da antena — foi aplicado o método numérico de **Newton-Raphson**:
+
+```
+x_(n+1) = x_n - E'(x_n) / E''(x_n)
+```
+
+Onde:
+* `x_n` é a aproximação atual;
+* `E'(x_n)` é a primeira derivada avaliada em `x_n`;
+* `E''(x_n)` é a segunda derivada avaliada em `x_n` (jacobiano local).
+
+O método realiza aproximações sucessivas até que a diferença entre iterações seja menor que a tolerância definida (`1e-6`).
+
+---
+
+## 💻 Implementação em Python
 
 ```python
 def E(x):
-    return -x**2 + 50*x
+    return (
+        -(x**6)/6 + (15*x**5)/5 - (85*x**4)/4 +
+        (225*x**3)/3 - (274*x**2)/2 + 120*x
+    )
 
 def dE(x):
-    return -2*x + 50
+    return (
+        -x**5 + 15*x**4 - 85*x**3 + 225*x**2 - 274*x + 120
+    )
 
-def newton_raphson(f, df, x0, tol=1e-6, max_iter=100):
+def ddE(x):
+    return (
+        -5*x**4 + 60*x**3 - 255*x**2 + 450*x - 274
+    )
 
+def newton_raphson(x0, tolerancia=1e-6, max_iteracoes=100):
     x = x0
-
-    for _ in range(max_iter):
-
-        x_new = x - f(x)/df(x)
-
-        if abs(x_new - x) < tol:
+    for i in range(max_iteracoes):
+        fx  = dE(x)
+        dfx = ddE(x)
+        if dfx == 0:
+            break
+        x_new = x - fx / dfx
+        if abs(x_new - x) < tolerancia:
             return x_new
-
         x = x_new
-
     return x
 
-altura_ideal = newton_raphson(dE, lambda x: -2, 10)
+altura_ideal = newton_raphson(x0=0.5)
 ```
 
 ---
 
-# 📡 Validação Orbital do Sinal
+## 📡 Validação Orbital do Sinal
 
-Após encontrar a altura ideal da antena, o sistema realiza uma validação computacional da comunicação orbital.
+Após encontrar a altura ideal, o sistema valida a comunicação orbital considerando:
 
-A validação considera:
+* `E(altura_ideal)` — eficiência do sinal naquele ponto;
+* `|E'(altura_ideal)|` — variação do sinal (quanto menor, mais estável).
 
-* eficiência do sinal;
-* estabilidade operacional;
-* variação da derivada.
+| Status    | Condição                              |
+|-----------|---------------------------------------|
+| ESTÁVEL   | Eficiência > 40 e variação < 1        |
+| MODERADO  | Eficiência > 20                        |
+| INSTÁVEL  | Demais casos                           |
 
-O sistema classifica o sinal em:
-
-* ESTÁVEL
-* MODERADO
-* INSTÁVEL
-
-Caso o sinal seja considerado instável, o sistema interrompe o processamento climático para evitar falhas de comunicação.
+Se o sinal for **INSTÁVEL**, o sistema entra em modo de segurança e interrompe o processamento climático.
 
 ---
 
-# 📉 Geração de Gráficos
+## 📉 Geração de Gráficos
 
-O sistema gera automaticamente gráficos para visualização dos dados.
+O sistema exporta automaticamente os seguintes gráficos em PNG:
 
-Gráficos gerados:
+| Arquivo                  | Conteúdo                        |
+|--------------------------|---------------------------------|
+| `grafico_temperatura.png`| Série temporal de temperatura   |
+| `grafico_chuva.png`      | Volume diário de chuva          |
+| `grafico_umidade.png`    | Umidade relativa do ar          |
+| `grafico_risco.png`      | Distribuição de categorias de risco |
 
-* temperatura;
-* chuva;
-* umidade;
-* risco climático.
+---
 
-Os gráficos são exportados em PNG para integração com dashboards web.
+## 🌐 Integração com Front-End
 
-Exemplo:
+Os dados processados e os gráficos PNG podem ser integrados diretamente em:
 
-```python
-plt.savefig("grafico_temperatura.png")
+* dashboards HTML/CSS/JavaScript;
+* sistemas web de monitoramento;
+* relatórios automáticos.
+
+---
+
+## 📂 Estrutura do Repositório
+
 ```
-
----
-
-# 🌐 Integração com Front-End
-
-Os dados processados podem ser utilizados em:
-
-* HTML;
-* CSS;
-* JavaScript;
-* dashboards;
-* sistemas web.
-
-Os gráficos exportados podem ser incorporados diretamente em interfaces web.
-
----
-
-# 📂 Estrutura do Projeto
-
-```bash
 python-selene/
-│
 ├── selene.py
-└── requirements.txt
-README.md
+├── requirements.txt
+└── README.md
 ```
 
 ---
 
-# ▶️ Como Executar o Projeto
+## ▶️ Como Executar o Projeto
 
-## 1. Instalar o Python
+### 1. Instalar o Python 3
 
-Download oficial:
+Download oficial: [python.org/downloads](https://www.python.org/downloads/)
 
-[Python](https://www.python.org/downloads/?utm_source=chatgpt.com)
-
----
-
-## 2. Clonar o repositório
+### 2. Clonar o repositório
 
 ```bash
 git clone https://github.com/seu-usuario/python-selene.git
+cd python-selene
 ```
 
----
-
-## 3. Instalar as dependências
+### 3. Instalar as dependências
 
 ```bash
 pip install -r requirements.txt
 ```
 
----
-
-## 4. Executar o sistema
+### 4. Executar o sistema
 
 ```bash
 python selene.py
@@ -409,9 +351,9 @@ python selene.py
 
 ---
 
-# 📦 requirements.txt
+## 📦 requirements.txt
 
-```txt
+```
 requests
 pandas
 matplotlib
@@ -420,71 +362,45 @@ numpy
 
 ---
 
-# 📊 Benefícios Mensuráveis da Solução
+## 📊 Benefícios Mensuráveis da Solução
 
-O Project Selene oferece diversos benefícios:
-
-✅ automatização da análise climática;
-
-✅ identificação rápida de riscos ambientais;
-
-✅ apoio computacional à tomada de decisão;
-
-✅ redução de falhas em comunicação orbital;
-
-✅ integração com dashboards web;
-
-✅ processamento automatizado de dados;
-
-✅ aplicação prática de cálculo diferencial;
-
-✅ utilização de métodos numéricos;
-
-✅ simulação de ambientes reais da indústria espacial.
+| Benefício | Descrição |
+|---|---|
+| ⚡ Automatização | Análise climática sem intervenção manual |
+| 🚨 Detecção de riscos | Identificação imediata de condições extremas |
+| 🛰️ Validação orbital | Garantia de integridade na comunicação via satélite |
+| 📊 Visualização | Gráficos prontos para dashboards web |
+| 🔢 Precisão numérica | Newton-Raphson com tolerância de 1e-6 |
+| 🔗 Integração | JSON exportável para qualquer front-end |
 
 ---
 
-# 🧠 Conceitos Aplicados
+## 🧠 Conceitos Aplicados
 
-## Matemática
-
-* derivadas;
+### Matemática
+* derivadas (primeira e segunda);
 * cálculo diferencial;
 * máximos e mínimos locais;
-* método de Newton-Raphson.
+* método numérico de Newton-Raphson.
 
-## Programação
+### Programação
+* consumo de APIs REST;
+* análise de dados com Pandas;
+* geração de gráficos com Matplotlib;
+* automação computacional.
 
-* consumo de APIs;
-* análise de dados;
-* DataFrames;
-* automação computacional;
-* geração de gráficos.
-
-## Indústria Espacial
-
+### Indústria Espacial
 * monitoramento climático;
 * comunicação via satélite;
 * validação orbital;
-* análise ambiental;
 * prevenção de desastres climáticos.
 
 ---
 
-# ✅ Conclusão
+## ✅ Conclusão
 
 O Project Selene demonstrou como técnicas matemáticas e computacionais podem ser aplicadas em problemas reais da indústria espacial e do monitoramento climático.
 
-A integração entre:
+A integração entre NASA POWER API, análise de dados, derivadas de polinômios de grau 6, método de Newton-Raphson e validação orbital resultou em uma solução funcional, organizada e aplicável a sistemas modernos de monitoramento ambiental.
 
-* APIs da NASA;
-* análise de dados;
-* derivadas;
-* métodos numéricos;
-* validação orbital;
-
-permitiu desenvolver uma solução funcional, organizada e aplicável a sistemas modernos de monitoramento ambiental.
-
-Além disso, o projeto evidencia a importância da programação, da matemática e da análise de dados na construção de sistemas inteligentes voltados à prevenção de desastres e apoio à tomada de decisão.
-
----
+O projeto evidencia a importância da programação, da matemática e da análise de dados na construção de sistemas inteligentes voltados à prevenção de desastres e apoio à tomada de decisão.
