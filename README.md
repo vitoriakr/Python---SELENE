@@ -224,7 +224,7 @@ Os gráficos gerados podem ser utilizados diretamente em:
 ```bash
 python-selene/
 │
-├── main.py
+├── selene.py
 ├── README.md
 ├── grafico_temperatura.png
 ├── grafico_chuva.png
