@@ -1,5 +1,7 @@
 # 🌌 Project Selene – Sistema Orbital de Monitoramento Climático
 
+Grupo: Anita, Kauã e Vitória
+
 ## 📖 Descrição da Solução
 
 O **Project Selene** é uma solução computacional desenvolvida em **Python** no contexto da **Indústria Espacial**, com foco em monitoramento climático e validação de comunicação orbital.
