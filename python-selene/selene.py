@@ -7,6 +7,7 @@ import json
 # ==========================================
 # PROJECT SELENE
 # Sistema Orbital de Monitoramento Climático
+#Grupo: Anita, Kauã e Vitória
 # ==========================================
 # Integra dados climáticos reais da NASA POWER API com validação
 # orbital baseada em cálculo diferencial e método de Newton-Raphson.
