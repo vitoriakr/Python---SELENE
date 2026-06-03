@@ -39,8 +39,23 @@ url = (
     f"&community=RE&parameters=T2M,PRECTOTCORR,RH2M&format=JSON"
 )
 
-resposta = requests.get(url)
-dados_brutos = resposta.json()
+try:
+    resposta = requests.get(url, timeout=30)
+    resposta.raise_for_status()
+    dados_brutos = resposta.json()
+except requests.exceptions.ConnectionError:
+    print("ERRO: Sem conexão com a internet. Verifique sua rede e tente novamente.")
+    exit(1)
+except requests.exceptions.Timeout:
+    print("ERRO: A requisição à NASA POWER API excedeu o tempo limite. Tente novamente.")
+    exit(1)
+except requests.exceptions.HTTPError as e:
+    print(f"ERRO: A NASA POWER API retornou um erro HTTP {resposta.status_code}. Detalhes: {e}")
+    exit(1)
+except requests.exceptions.RequestException as e:
+    print(f"ERRO inesperado ao conectar à API: {e}")
+    exit(1)
+
 parametros_nasa = dados_brutos["properties"]["parameter"]
 
 print("Dados recebidos com sucesso.")
@@ -187,7 +202,11 @@ else:
 # ==========================================
 if sistema_operacional:
 
+    data_inicio_fmt = dados_climaticos.index.min().strftime("%d/%m/%Y")
+    data_fim_fmt    = dados_climaticos.index.max().strftime("%d/%m/%Y")
+
     print("\n========== ANÁLISE CLIMÁTICA ==========\n")
+    print(f"Período considerado: {data_inicio_fmt} a {data_fim_fmt}\n")
 
     temp_media    = dados_climaticos["Temperatura"].mean()
     temp_maxima   = dados_climaticos["Temperatura"].max()
